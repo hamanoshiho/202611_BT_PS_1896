@@ -1,0 +1,54 @@
+﻿import csv
+import re
+import sys
+from pathlib import Path
+
+
+input_path = Path(sys.argv[1])
+output_path = Path(sys.argv[2])
+
+
+source = input_path.read_text(encoding="utf-8")
+
+
+blocks = re.findall(
+    r"^<<<ARTICLE>>>\s*\n(.*?)(?=^<<<ARTICLE>>>\s*\n|\Z)",
+    source,
+    flags=re.MULTILINE | re.DOTALL,
+)
+
+
+fields = ["id", "year", "issue", "pages", "title", "article_type", "text"]
+rows = []
+
+
+for block in blocks:
+    header, separator, text = block.partition("\n---\n")
+    if not separator:
+        raise ValueError("記事のヘッダーの後に --- がありません。")
+
+
+    record = {}
+    for line in header.splitlines():
+        if ":" in line:
+            key, value = line.split(":", 1)
+            record[key.strip()] = value.strip()
+
+
+    record["text"] = re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+    if not record.get("id") or not record.get("text"):
+        raise ValueError("idまたは本文が空の記事があります。")
+
+
+    rows.append({field: record.get(field, "") for field in fields})
+
+
+with output_path.open("w", encoding="utf-8-sig", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(rows)
+
+
+print(f"{len(rows)} articles written to {output_path}")
