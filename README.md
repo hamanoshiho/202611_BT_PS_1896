@@ -10,11 +10,27 @@
    - 段階2：共通のキーワード辞書で出現頻度と月別の推移を比べる
    - 段階3：関連する部分を同じ長さの文章片にそろえ、両誌を一つのモデルで分析する（合同モデル）
 
-## 進み具合（2026年11月5日時点）
+## 進み具合（2026年11月19日時点）
 
 - 両誌のトピックモデルと、三段階の比較が終わっています。
-- 論文（方法論が中心、日本語）は草稿ができています。
+- 論文（方法論が中心、日本語）は投稿済みです。
 - 対象年を広げることを、今後の課題として予定しています。
+
+## リポジトリの構成
+
+スクリプトは、分析の段階ごとに三つのフォルダに分けています。
+
+| フォルダ | 内容 |
+|---|---|
+| `Berliner-Tageblatt/` | A：BTのテキストの取得・整形と、トピックモデル |
+| `Psychische-Studien/` | B：PSの整形とトピックモデル、作業用目次 |
+| `Compare/` | C：二誌の比較（段階1〜3）と、論文の図 |
+
+元のテキストとデータは、下の「データ」のとおり、このリポジトリには含めていません。
+`Berliner-Tageblatt`、`Compare`、`Psychische-Studien` という名前のブランチは、2026年10月の作業時のもので、
+記録として残しています。現在の内容は `main` を見てください。
+
+論文（2026年11月投稿）が参照しているタグ `v1.0`（コミット `a2ffb5b`）は、そのままにしてあります。
 
 ## データ
 
@@ -42,7 +58,7 @@ pandas==2.3.3  numpy==1.26.4  plotly==7.1.0  requests==2.32.5
 
 ## 実行の順番
 
-どのスクリプトも、データを置いたフォルダ（以下、作業フォルダ）で実行する前提です。詳しい使い方は、各スクリプトの冒頭のコメントにあります。
+どのスクリプトも、データを置いたフォルダ（以下、作業フォルダ）で実行する前提です。下のコマンドはスクリプト名だけを書いていますが、実際には上の表のフォルダからコピーするか、パスを付けて実行してください。詳しい使い方は、各スクリプトの冒頭のコメントにあります。
 
 ### A. Berliner Tageblatt のトピックモデル
 
@@ -122,15 +138,15 @@ python3 make_paper_figs.py                   # 論文の図1〜7 → paper_figs/
 ## 既知の問題
 
 - **`joint_model_scripts.py` はそのままでは動きません。** 作業環境のパス（`/mnt/user-data/...`、`out2/`）が書き込まれており、三つの処理が一つのファイルに続けて書かれています。実行するには、パスを作業フォルダに合わせて直す必要があります。
-- **論文の表4と図5(b)の「透視・テレパシー」（PS）の数は、10月の集計（21件）に基づいています。** 書き直した `compare_stage2_keywords.py` では19件になります。
+- **「透視・テレパシー」（PS）の件数は19件です。** 10月の集計では21件でしたが、書き直した `compare_stage2_keywords.py` では19件になります。投稿した論文の表4と図5(b)は19件に基づいています。
 - **トピックの日本語名と分類は、筆者が上位語と所属文書を読んで付けたものです。**
 
 ## ファイルの一覧
 
 | ファイル | 段階 |
 |---|---|
-| `download_berliner_tageblatt.py`, `alto_to_text.py`, `ocr_missing.py`, `bt_prepare_corpus.py` | A：BTのテキストの取得と整形 |
-| `bt_run_bertopic.py`, `bt_refine.py`, `bt_make_tables.py` | A：BTのトピックモデルと表・図 |
-| `txt_to_csv.py`, `prepare_analysis_corpus.py`, `run_bertopic.py` | B：PSの整形とトピックモデル |
-| `embed_texts.py`, `compare_stage1.py`, `compare_stage2_keywords.py`, `bt_select_keywords.py`, `joint_model_scripts.py` | C：二誌の比較 |
-| `make_paper_figs.py` | 論文の図 |
+| `Berliner-Tageblatt/download_berliner_tageblatt.py`, `alto_to_text.py`, `ocr_missing.py`, `bt_prepare_corpus.py` | A：BTのテキストの取得と整形 |
+| `Berliner-Tageblatt/bt_run_bertopic.py`, `bt_refine.py`, `bt_make_tables.py` | A：BTのトピックモデルと表・図 |
+| `Psychische-Studien/txt_to_csv.py`, `prepare_analysis_corpus.py`, `run_bertopic.py`, `psychische_studien_v23_1896_contents.md` | B：PSの整形とトピックモデル、作業用目次 |
+| `Compare/embed_texts.py`, `compare_stage1.py`, `compare_stage2_keywords.py`, `bt_select_keywords.py`, `joint_model_scripts.py` | C：二誌の比較 |
+| `Compare/make_paper_figs.py` | 論文の図 |

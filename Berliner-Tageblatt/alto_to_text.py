@@ -7,8 +7,9 @@ ZEFYS（ベルリン国立図書館）が公開している OCR 済みテキス�
               → FULLTEXT グループに各ページの ALTO XML の URL が載っている
   出力       : <out>/<号ID>.txt   （記事のまとまり＝TextBlock ごとに空行で区切る）
 
-使い方（ダウンロード済みPDFのフォルダを指定すると、同じ号のテキストを作る）
-  python3 alto_to_text.py berliner_tageblatt_1896
+使い方
+  python3 alto_to_text.py 1896                     # 年を指定（PDF不要。download_berliner_tageblatt.py を同じフォルダに置く）
+  python3 alto_to_text.py berliner_tageblatt_1896  # ダウンロード済みPDFと同じ号だけ処理
   python3 alto_to_text.py berliner_tageblatt_1896 --min-wc 0.5   # OCR信頼度の低い語を除く
 """
 import argparse
@@ -45,10 +46,6 @@ def alto_urls(session, snp):
         if grp.get("USE") == "FULLTEXT":
             for loc in grp.iterfind(".//mets:FLocat", METS_NS):
                 urls.append(loc.get("{http://www.w3.org/1999/xlink}href"))
-    if not urls:  # 予備: ページ番号から推定
-        n = len(root.findall(".//mets:fileGrp[@USE='DEFAULT']/mets:file", METS_NS))
-        base = snp.rsplit("-", 3)[0]
-        urls = [f"{BASE}{base}-{p}-0-0.alto.xml" for p in range(1, n + 1)]
     return urls
 
 
@@ -90,8 +87,11 @@ def process(session, snp, out_dir, min_wc):
     if dest.exists() and dest.stat().st_size > 0:
         return snp, "skip"
     try:
+        urls = alto_urls(session, snp)
+        if not urls:  # この号はZEFYSにOCRテキストがない
+            return snp, "no-ocr"
         pages = []
-        for i, url in enumerate(alto_urls(session, snp), 1):
+        for i, url in enumerate(urls, 1):
             blocks = alto_to_blocks(get(session, url), min_wc)
             pages.append(f"=== Seite {i} ===\n" + "\n\n".join(blocks))
         dest.write_text("\n\n".join(pages), encoding="utf-8")
@@ -102,28 +102,39 @@ def process(session, snp, out_dir, min_wc):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("pdf_dir", help="ダウンロード済みPDFのフォルダ（ファイル名から号IDを取る）")
+    ap.add_argument("pdf_dir", help="年（例 1896）、またはダウンロード済みPDFのフォルダ")
     ap.add_argument("--out", default=None, help="出力先（既定: <pdf_dir>_txt）")
     ap.add_argument("--min-wc", type=float, default=0.0, help="この値未満のOCR信頼度の語を除く（例 0.5）")
     ap.add_argument("--workers", type=int, default=3)
     args = ap.parse_args()
 
-    pdf_dir = Path(args.pdf_dir)
-    out_dir = Path(args.out or f"{pdf_dir.as_posix().rstrip('/')}_txt")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ids = sorted(p.stem for p in pdf_dir.glob("SNP*.pdf"))
-    print(f"{len(ids)}号を処理 → {out_dir.resolve()}")
-
     session = requests.Session()
     session.headers.update(HEADERS)
-    failed = []
+
+    if re.fullmatch(r"\d{4}", args.pdf_dir):  # 年が指定された場合: PDFなしで号IDを取得
+        from download_berliner_tageblatt import get_issue_ids
+        ids = get_issue_ids(session, args.pdf_dir)
+        out_dir = Path(args.out or f"berliner_tageblatt_{args.pdf_dir}_txt")
+    else:
+        pdf_dir = Path(args.pdf_dir)
+        ids = sorted(p.stem for p in pdf_dir.glob("SNP*.pdf"))
+        out_dir = Path(args.out or f"{pdf_dir.as_posix().rstrip('/')}_txt")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"{len(ids)}号を処理 → {out_dir.resolve()}")
+    failed, no_ocr = [], []
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         futs = [ex.submit(process, session, snp, out_dir, args.min_wc) for snp in ids]
         for i, f in enumerate(as_completed(futs), 1):
             snp, status = f.result()
             print(f"[{i}/{len(ids)}] {snp}: {status}")
+            if status == "no-ocr":
+                no_ocr.append(snp)
             if status.startswith("error"):
                 failed.append(f"{snp}\t{status}")
+    if no_ocr:
+        (out_dir / "no_ocr.txt").write_text("\n".join(sorted(no_ocr)), encoding="utf-8")
+        print(f"OCRテキストが公開されていない号: {len(no_ocr)}件 → no_ocr.txt（再実行しても取得できません）")
+    (out_dir / "failed.txt").unlink(missing_ok=True)
     if failed:
         (out_dir / "failed.txt").write_text("\n".join(failed), encoding="utf-8")
         print(f"失敗 {len(failed)}件（再実行で失敗分だけ取り直します）")
