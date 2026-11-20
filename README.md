@@ -101,14 +101,15 @@ python3 embed_texts.py ps                    # PSの99文書のベクトル → 
 python3 compare_stage1.py                    # 段階1 → BT_PS_1896_stage1.xlsx, fig_topic_similarity.png
 python3 compare_stage2_keywords.py           # 段階2 → BT_PS_1896_stage2.xlsx, fig_keywords_by_month.png
 python3 bt_select_keywords.py                # 段階3の準備：BTの188文書を選ぶ → bt_sel.pkl
-#   joint_model_scripts.py の1つ目の部分 → joint_passages.csv（BT 283件＋PS 3,087件）
-python3 embed_texts.py joint                 # 文章片のベクトル → media_compare_1896/joint_passages_embeddings.npy
-#   joint_model_scripts.py の2つ目・3つ目の部分 → BT_PS_1896_joint_model.xlsx（28トピック、mcs=25）
+python3 joint_1_make_passages.py             # 文章片にそろえる → joint_passages.csv（BT 283件＋PS 3,087件）
+python3 embed_texts.py joint                 # 文章片のベクトル → joint_passages_embeddings.npy
+python3 joint_2_run_bertopic.py --mcs 25     # 合同モデル → j2_mcs25.pkl, joint2_mcs25/（28トピック）
+python3 joint_3_label_topics.py --mcs 25     # ラベルと集計 → j3.pkl
+python3 joint_4_make_outputs.py              # → BT_PS_1896_joint_model.xlsx と図2点
 python3 make_paper_figs.py                   # 論文の図1〜7 → paper_figs/（カラー）, paper_figs_gray/（モノクロ）
 ```
 
 - 段階1の前提として、BTの保存済みベクトルが同じモデルで再現できるかを `python3 embed_texts.py btcheck` で確かめられます。
-- `joint_model_scripts.py` を動かす前に、下の「既知の問題」を見てください。
 
 ## 主な結果ファイル
 
@@ -137,7 +138,8 @@ python3 make_paper_figs.py                   # 論文の図1〜7 → paper_figs/
 
 ## 既知の問題
 
-- **`joint_model_scripts.py` はそのままでは動きません。** 作業環境のパス（`/mnt/user-data/...`、`out2/`）が書き込まれており、三つの処理が一つのファイルに続けて書かれています。実行するには、パスを作業フォルダに合わせて直す必要があります。
+- **段階3のスクリプトについて。** 2026年10月の作業では四つの処理が `joint_model_scripts.py` という一つのファイルに続けて書かれており、作業環境のパスが残っていたほか、変数名に使えない文字（`日付・号`）が含まれていてそのままでは実行できませんでした。2026年11月に `joint_1`〜`joint_4` の四つに分け、入出力のパスを引数で指定できるようにしました。分析の内容と設定は変えていません。
+- **トピックのラベルは min_cluster_size=25 の結果に対応しています。** `--mcs` を変えて学習し直すとトピック番号が変わるため、`joint_3_label_topics.py` の `LABELS` を付け直す必要があります。
 - **「透視・テレパシー」（PS）の件数は19件です。** 10月の集計では21件でしたが、書き直した `compare_stage2_keywords.py` では19件になります。投稿した論文の表4と図5(b)は19件に基づいています。
 - **トピックの日本語名と分類は、筆者が上位語と所属文書を読んで付けたものです。**
 
@@ -148,5 +150,6 @@ python3 make_paper_figs.py                   # 論文の図1〜7 → paper_figs/
 | `Berliner-Tageblatt/download_berliner_tageblatt.py`, `alto_to_text.py`, `ocr_missing.py`, `bt_prepare_corpus.py` | A：BTのテキストの取得と整形 |
 | `Berliner-Tageblatt/bt_run_bertopic.py`, `bt_refine.py`, `bt_make_tables.py` | A：BTのトピックモデルと表・図 |
 | `Psychische-Studien/txt_to_csv.py`, `prepare_analysis_corpus.py`, `run_bertopic.py`, `psychische_studien_v23_1896_contents.md` | B：PSの整形とトピックモデル、作業用目次 |
-| `Compare/embed_texts.py`, `compare_stage1.py`, `compare_stage2_keywords.py`, `bt_select_keywords.py`, `joint_model_scripts.py` | C：二誌の比較 |
+| `Compare/embed_texts.py`, `compare_stage1.py`, `compare_stage2_keywords.py`, `bt_select_keywords.py` | C：二誌の比較（段階1・2と段階3の準備） |
+| `Compare/joint_1_make_passages.py`, `joint_2_run_bertopic.py`, `joint_3_label_topics.py`, `joint_4_make_outputs.py` | C：段階3（合同モデル） |
 | `Compare/make_paper_figs.py` | 論文の図 |
